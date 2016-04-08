@@ -1,5 +1,6 @@
 # imgtocli
 Image viewer for 256 color terminals
+
 depends on imagemagick for reading and scaling the images
 
 # screenshot
