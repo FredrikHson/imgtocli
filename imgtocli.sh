@@ -25,8 +25,10 @@ fi
 
 width=new_width
 height=new_height
-picture=($(
-    convert $filename -resize "${new_width}x${new_height}!" rgb:- | \
+colors=$(tput colors)
+dither="Riemersma" # Can be None, FloydSteinberg or Riemersma
+picture=($(convert $filename -dither $dither -colors $colors \
+            -resize "${new_width}x${new_height}!" rgb:- | \
         hexdump -v -e '/1 "%d\n"'
 ))
 
