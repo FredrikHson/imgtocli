@@ -22,17 +22,18 @@ if [[ $new_height -ge $lines ]]; then
     new_height=$lines
     new_width=$(( $width*$new_height/$height ))
 fi
-tmpfile=$(mktemp tmp.XXXX.rgb)
 
-convert $filename -resize "${new_width}x${new_height}!" $tmpfile
 width=new_width
 height=new_height
-hexfile=$(xxd -c 1 -ps  $tmpfile)
+hexfile=($(
+    convert $filename -resize "${new_width}x${new_height}!" rgb:- | \
+        xxd -c 1 -ps
+))
 
-rm $tmpfile
 for line in ${hexfile[@]}; do
     picture+=($((16#$line)))
 done
+
 pixels=width*height
 for (( y=0; y<height/2;y++));do
     yoffset=$((y*2*width*3))
@@ -43,8 +44,8 @@ for (( y=0; y<height/2;y++));do
         green=${picture[yoffset+x*3+1]}
         blue=${picture[yoffset+x*3+2]}
 
-        echo -en "\033[48;2;${red};${green};${blue};38;2;${red};${green};${blue}m▄"
+        echo -en "\x1b[48;2;${red};${green};${blue};38;2;${red};${green};${blue}m▄"
     done
     echo
 done
-echo -en "\033[0m"
+echo -en "\x1b[0m"
