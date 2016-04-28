@@ -80,8 +80,8 @@ for (( y=0; y<height/2;y++));do
 
         topcolor=$(get_color ${picture[yoffset+x*3]} ${picture[yoffset+x*3+1]} ${picture[yoffset+x*3+2]})
         bottomcolor=$(get_color ${picture[yoffset2+x*3]} ${picture[yoffset2+x*3+1]} ${picture[yoffset2+x*3+2]})
-        echo -en "\e[48;5;$topcolor;38;5;${bottomcolor}m▄"
+        echo -en "\033[48;5;$topcolor;38;5;${bottomcolor}m▄"
     done
     echo
 done
-echo -en "\e[0m"
+echo -en "\033[0m"
