@@ -1,6 +1,6 @@
 #!/bin/bash
 outputfile=$(mktemp -u)
-cat $0 | tail -n +6 | /usr/bin/c++ -I$(dirname $0) -lIL -lILU -xc++ - -o $outputfile && $outputfile $@
+cat $0 | tail -n +6 | /usr/bin/c++ -I$(dirname $0) -lIL -lILU -xc++ - -o $outputfile && $outputfile "$@"
 rm $outputfile
 exit 0
 #include <stdio.h>
@@ -12,20 +12,78 @@ exit 0
 #include <math.h>
 
 unsigned char getclosestcolor(unsigned char r, unsigned char g, unsigned char b);
+#define D(x) (x/65.0)
+float dithermatrix[64] =
+{
+    1, 49, 13, 61, 4, 52, 16, 64,
+    33, 17, 45, 29, 36, 20, 48, 32,
+    9, 57, 5, 53, 12, 60, 8, 56,
+    41, 25, 37, 21, 44, 28, 40, 24,
+    3, 51, 15, 63, 2, 50, 14, 62,
+    35, 19, 47, 31, 34, 18, 46, 30,
+    11, 59, 7, 55, 10, 58, 6, 54,
+    43, 27, 39, 23, 42, 26, 38, 22
+};
+
+unsigned char getclosestcolordither(unsigned int r, unsigned int g, unsigned char b, unsigned int x, unsigned int y)
+{
+    int dither_red = r + r * dithermatrix[x % 8 + (y % 8) * 8];
+    int dither_green = g + g * dithermatrix[x % 8 + (y % 8) * 8];
+    int dither_blue = b + b * dithermatrix[x % 8 + (y % 8) * 8];
+
+    if(dither_red > 255)
+    {
+        dither_red = 255;
+
+    }
+
+    if(dither_green > 255)
+    {
+        dither_green = 255;
+
+    }
+
+    if(dither_blue > 255)
+    {
+        dither_blue = 255;
+
+    }
+
+    if(dither_red < 0)
+    {
+        dither_red = 0;
+
+    }
+
+    if(dither_green < 0)
+    {
+        dither_green = 0;
+
+    }
+
+    if(dither_blue < 0)
+    {
+        dither_blue = 0;
+
+    }
+
+    return getclosestcolor(dither_red, dither_green, dither_blue);
+}
+
+
+
 void plotPixel(unsigned char top, unsigned char bottom)
 {
-    printf("\e[48;5;%d;38;5;%dm▄", top, bottom);
+    printf("\33[48;5;%d;38;5;%dm▄", top, bottom);
 }
-unsigned int getoffset(unsigned int x, unsigned int y, unsigned int w)
+unsigned char getColor(unsigned int x, unsigned int y, unsigned int w, unsigned char* data)
 {
-    return x * 3 + y * w * 3;
-}
-unsigned char getColor(unsigned int offset, unsigned char* data)
-{
+    unsigned int offset = x * 3 + y * w * 3;
     unsigned char r = data[offset];
     unsigned char g = data[offset + 1];
     unsigned char b = data[offset + 2];
-    return getclosestcolor(r, g, b);
+    return getclosestcolordither(r, g, b, x, y);
+    //return getclosestcolor(r, g, b);
 }
 int main(int argc, char* argv[])
 {
@@ -34,6 +92,11 @@ int main(int argc, char* argv[])
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &term);
     h = term.ws_row * 2;
     w = term.ws_col;
+
+    for(int i = 0; i < 64; i++)
+    {
+        dithermatrix[i] = dithermatrix[i] / 125.0 - 0.2;
+    }
 
     ilInit();
     iluInit();
@@ -54,7 +117,8 @@ int main(int argc, char* argv[])
         target_h = h;
         target_w = img_w * (float)target_h / (float)img_h;
     }
-    iluImageParameter(ILU_FILTER,ILU_SCALE_MITCHELL);
+
+    iluImageParameter(ILU_FILTER, ILU_SCALE_MITCHELL);
     iluScale(target_w, target_h, 1);
     unsigned char* data = new unsigned char[target_w * target_h * 3];
     ilCopyPixels(0, 0, 0, target_w, target_h, 1, IL_RGB, IL_UNSIGNED_BYTE, data);
@@ -63,18 +127,18 @@ int main(int argc, char* argv[])
     {
         for(int i = 0; i < target_w; i++)
         {
-            unsigned char topcolor = getColor(getoffset(i, j * 2, target_w), data);
-            unsigned char bottomcolor = getColor(getoffset(i, j * 2 + 1, target_w), data);
+            unsigned char topcolor = getColor(i, j * 2, target_w, data);
+            unsigned char bottomcolor = getColor(i, j * 2 + 1, target_w, data);
 
             plotPixel(topcolor, bottomcolor);
 
         }
 
-        printf("\n");
+        printf("\33[0m\n");
 
     }
 
-    printf("\e[0m");
+    printf("\33[0m");
     delete [] data;
     return 0;
 }
