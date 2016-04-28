@@ -54,7 +54,7 @@ int main(int argc, char* argv[])
         target_h = h;
         target_w = img_w * (float)target_h / (float)img_h;
     }
-
+    iluImageParameter(ILU_FILTER,ILU_SCALE_MITCHELL);
     iluScale(target_w, target_h, 1);
     unsigned char* data = new unsigned char[target_w * target_h * 3];
     ilCopyPixels(0, 0, 0, target_w, target_h, 1, IL_RGB, IL_UNSIGNED_BYTE, data);
