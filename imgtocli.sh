@@ -1,5 +1,11 @@
 #!/bin/bash
 filename=$1
+
+if [[ ! -f "$filename" ]]; then
+    echo $1 file not found
+    exit 1
+fi
+
 width=$(identify -ping -format '%w' $filename)
 height=$(identify -ping -format '%h' $filename)
 columns=$(tput cols)
