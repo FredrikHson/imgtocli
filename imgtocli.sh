@@ -25,16 +25,11 @@ fi
 
 width=new_width
 height=new_height
-hexfile=($(
+picture=($(
     convert $filename -resize "${new_width}x${new_height}!" rgb:- | \
-        xxd -c 1 -ps
+        hexdump -v -e '/1 "%d\n"'
 ))
 
-for line in ${hexfile[@]}; do
-    picture+=($((16#$line)))
-done
-
-pixels=width*height
 for (( y=0; y<height/2;y++));do
     yoffset=$((y*2*width*3))
     yoffset2=$(((y*2+1)*width*3))
@@ -46,6 +41,6 @@ for (( y=0; y<height/2;y++));do
 
         echo -en "\x1b[48;2;${red};${green};${blue};38;2;${red};${green};${blue}m▄"
     done
-    echo
+    #echo
 done
 echo -en "\x1b[0m"
