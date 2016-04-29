@@ -43,7 +43,15 @@ for (( y=0; y<height/2;y++));do
         green=$((16#${picture[yoffset+x*3+1]}))
         blue=$((16#${picture[yoffset+x*3+2]}))
 
-        echo -en "\x1b[48;2;${red};${green};${blue};38;2;${red};${green};${blue}m▄"
+        topcolor="${red};${green};${blue}"
+
+        red=$((16#${picture[yoffset2+x*3]}))
+        green=$((16#${picture[yoffset2+x*3+1]}))
+        blue=$((16#${picture[yoffset2+x*3+2]}))
+
+        bottomcolor="${red};${green};${blue}"
+
+        echo -en "\x1b[48;2;${topcolor};38;2;${bottomcolor}m▄"
     done
     echo
 done
