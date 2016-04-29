@@ -146,7 +146,7 @@ int main(int argc, char* argv[])
 
     }
 
-    fprintf(stdout, buffer);
+    fwrite(buffer,bufferoffset,1,stdout);
     fprintf(stdout, "\33[0m");
     fflush(stdout);
     delete [] data;
