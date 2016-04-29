@@ -10,6 +10,7 @@ exit 0
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <math.h>
+#include <memory.h>
 
 unsigned char getclosestcolor(unsigned char r, unsigned char g, unsigned char b);
 #define D(x) (x/65.0)
@@ -72,9 +73,9 @@ unsigned char getclosestcolordither(unsigned int r, unsigned int g, unsigned cha
 
 
 
-void plotPixel(unsigned char top, unsigned char bottom)
+int plotPixel(unsigned char top, unsigned char bottom, char* buffer, int* bufferoffset)
 {
-    printf("\33[48;5;%d;38;5;%dm▄", top, bottom);
+    return sprintf(buffer + *bufferoffset, "\33[48;5;%d;38;5;%dm▄", top, bottom);
 }
 unsigned char getColor(unsigned int x, unsigned int y, unsigned int w, unsigned char* data)
 {
@@ -95,7 +96,7 @@ int main(int argc, char* argv[])
 
     for(int i = 0; i < 64; i++)
     {
-        dithermatrix[i] = dithermatrix[i] / 125.0 - 0.2;
+        dithermatrix[i] = dithermatrix[i] / 65.0 - 0.2;
     }
 
     ilInit();
@@ -122,6 +123,11 @@ int main(int argc, char* argv[])
     iluScale(target_w, target_h, 1);
     unsigned char* data = new unsigned char[target_w * target_h * 3];
     ilCopyPixels(0, 0, 0, target_w, target_h, 1, IL_RGB, IL_UNSIGNED_BYTE, data);
+    int bytesused  = 0;
+    int buffersize = (target_h / 2 * target_w * 23) + (target_h / 2 * 5) + 1;
+    char* buffer   = new char[buffersize];
+    memset(buffer, 0, buffersize);
+    int bufferoffset = 0;
 
     for(int j = 0; j < target_h / 2; j++)
     {
@@ -130,16 +136,21 @@ int main(int argc, char* argv[])
             unsigned char topcolor = getColor(i, j * 2, target_w, data);
             unsigned char bottomcolor = getColor(i, j * 2 + 1, target_w, data);
 
-            plotPixel(topcolor, bottomcolor);
+            bytesused = plotPixel(topcolor, bottomcolor, buffer, &bufferoffset);
+            bufferoffset += bytesused;
 
         }
 
-        printf("\33[0m\n");
+        bytesused = sprintf(buffer + bufferoffset, "\33[0m\n");
+        bufferoffset += bytesused;
 
     }
 
-    printf("\33[0m");
+    fprintf(stdout, buffer);
+    fprintf(stdout, "\33[0m");
+    fflush(stdout);
     delete [] data;
+    delete [] buffer;
     return 0;
 }
 
