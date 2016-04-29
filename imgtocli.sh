@@ -31,7 +31,7 @@ picture=($(convert $filename \
             -resize "${new_width}x${new_height}!" \
             -dither $dither -colors $colors \
             rgb:- | \
-        hexdump -v -e '/1 "%d\n"'
+            xxd -c 1 -ps
 ))
 
 for (( y=0; y<height/2;y++));do
@@ -39,9 +39,9 @@ for (( y=0; y<height/2;y++));do
     yoffset2=$(((y*2+1)*width*3))
     for (( x=0; x<width;x++));do
 
-        red=${picture[yoffset+x*3]}
-        green=${picture[yoffset+x*3+1]}
-        blue=${picture[yoffset+x*3+2]}
+        red=$((16#${picture[yoffset+x*3]}))
+        green=$((16#${picture[yoffset+x*3+1]}))
+        blue=$((16#${picture[yoffset+x*3+2]}))
 
         echo -en "\x1b[48;2;${red};${green};${blue};38;2;${red};${green};${blue}m▄"
     done
