@@ -53,6 +53,5 @@ for (( y=0; y<height/2;y++));do
 
         echo -en "\x1b[48;2;${topcolor};38;2;${bottomcolor}m▄"
     done
-    echo
+    echo -e "\x1b[0m"
 done
-echo -en "\x1b[0m"
