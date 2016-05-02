@@ -11,80 +11,14 @@ exit 0
 #include <unistd.h>
 #include <math.h>
 #include <memory.h>
-
-unsigned char getclosestcolor(unsigned char r, unsigned char g, unsigned char b);
-#define D(x) (x/65.0)
-float dithermatrix[64] =
-{
-    1, 49, 13, 61, 4, 52, 16, 64,
-    33, 17, 45, 29, 36, 20, 48, 32,
-    9, 57, 5, 53, 12, 60, 8, 56,
-    41, 25, 37, 21, 44, 28, 40, 24,
-    3, 51, 15, 63, 2, 50, 14, 62,
-    35, 19, 47, 31, 34, 18, 46, 30,
-    11, 59, 7, 55, 10, 58, 6, 54,
-    43, 27, 39, 23, 42, 26, 38, 22
-};
-
-unsigned char getclosestcolordither(unsigned int r, unsigned int g, unsigned char b, unsigned int x, unsigned int y)
-{
-    int dither_red = r + r * dithermatrix[x % 8 + (y % 8) * 8];
-    int dither_green = g + g * dithermatrix[x % 8 + (y % 8) * 8];
-    int dither_blue = b + b * dithermatrix[x % 8 + (y % 8) * 8];
-
-    if(dither_red > 255)
-    {
-        dither_red = 255;
-
-    }
-
-    if(dither_green > 255)
-    {
-        dither_green = 255;
-
-    }
-
-    if(dither_blue > 255)
-    {
-        dither_blue = 255;
-
-    }
-
-    if(dither_red < 0)
-    {
-        dither_red = 0;
-
-    }
-
-    if(dither_green < 0)
-    {
-        dither_green = 0;
-
-    }
-
-    if(dither_blue < 0)
-    {
-        dither_blue = 0;
-
-    }
-
-    return getclosestcolor(dither_red, dither_green, dither_blue);
-}
+extern unsigned char inputpal[720];
+unsigned char getclosestcolor(short r, short g, short b);
 
 
 
 int plotPixel(unsigned char top, unsigned char bottom, char* buffer, int* bufferoffset)
 {
     return sprintf(buffer + *bufferoffset, "\33[48;5;%d;38;5;%dm▄", top, bottom);
-}
-unsigned char getColor(unsigned int x, unsigned int y, unsigned int w, unsigned char* data)
-{
-    unsigned int offset = x * 3 + y * w * 3;
-    unsigned char r = data[offset];
-    unsigned char g = data[offset + 1];
-    unsigned char b = data[offset + 2];
-    return getclosestcolordither(r, g, b, x, y);
-    //return getclosestcolor(r, g, b);
 }
 int main(int argc, char* argv[])
 {
@@ -94,10 +28,6 @@ int main(int argc, char* argv[])
     h = term.ws_row * 2;
     w = term.ws_col;
 
-    for(int i = 0; i < 64; i++)
-    {
-        dithermatrix[i] = dithermatrix[i] / 65.0 - 0.2;
-    }
 
     ilInit();
     iluInit();
@@ -129,12 +59,75 @@ int main(int argc, char* argv[])
     memset(buffer, 0, buffersize);
     int bufferoffset = 0;
 
+    unsigned short* datadither = new unsigned short [ target_w * target_h * 3];
+    unsigned char* datadither8bit = new unsigned char [ target_w * target_h ];
+
+    for(int i = 0; i < (target_w * target_h * 3); i++)
+    {
+        datadither[i] = data[i];
+    }
+
+    for(int j = 0; j < target_h; j++)
+    {
+        for(int i = 0; i < target_w; i++)
+        {
+#define GETOFFSET(x,y,w) ((x) * 3 + (y) * w * 3)
+            unsigned int offset = GETOFFSET(i, j, target_w);
+            short r = datadither[offset];
+            short g = datadither[offset + 1];
+            short b = datadither[offset + 2];
+            unsigned char closestcolor = getclosestcolor(r, g, b);
+            short new_r = inputpal[(closestcolor - 16) * 3];
+            short new_g = inputpal[(closestcolor - 16) * 3 + 1];
+            short new_b = inputpal[(closestcolor - 16) * 3 + 2];
+            short rquanterror = r - new_r;
+            short gquanterror = g - new_g;
+            short bquanterror = b - new_b;
+
+            if((i + 1) < target_w)
+            {
+                unsigned int currentpixel = GETOFFSET(i + 1, j, target_w);
+                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (7.0 / 16.0);
+                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (7.0 / 16.0);
+                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (7.0 / 16.0);
+            }
+
+            if((i - 1) >= 0 && (j + 1) < target_h)
+            {
+                unsigned int currentpixel = GETOFFSET(i - 1, j + 1, target_w);
+                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (3.0 / 16.0);
+                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (3.0 / 16.0);
+                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (3.0 / 16.0);
+            }
+            if((j + 1) < target_h)
+            {
+                unsigned int currentpixel = GETOFFSET(i , j + 1, target_w);
+                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (5.0 / 16.0);
+                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (5.0 / 16.0);
+                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (5.0 / 16.0);
+            }
+            if((i + 1) < target_w && (j + 1) < target_h)
+            {
+                unsigned int currentpixel = GETOFFSET(i + 1, j + 1, target_w);
+                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (1.0 / 16.0);
+                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (1.0 / 16.0);
+                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (1.0 / 16.0);
+            }
+
+            datadither8bit[i + j * target_w] = closestcolor;
+
+
+        }
+
+    }
+
     for(int j = 0; j < target_h / 2; j++)
     {
         for(int i = 0; i < target_w; i++)
         {
-            unsigned char topcolor = getColor(i, j * 2, target_w, data);
-            unsigned char bottomcolor = getColor(i, j * 2 + 1, target_w, data);
+            unsigned int offset = i  + j * 2 * target_w  ;
+            unsigned char topcolor = datadither8bit[offset];
+            unsigned char bottomcolor =  datadither8bit[offset + target_w];
 
             bytesused = plotPixel(topcolor, bottomcolor, buffer, &bufferoffset);
             bufferoffset += bytesused;
@@ -146,10 +139,11 @@ int main(int argc, char* argv[])
 
     }
 
-    fwrite(buffer,bufferoffset,1,stdout);
+    fwrite(buffer, bufferoffset, 1, stdout);
     fprintf(stdout, "\33[0m");
     fflush(stdout);
     delete [] data;
+    delete [] datadither;
     delete [] buffer;
     return 0;
 }
@@ -239,7 +233,7 @@ unsigned char inputpal[720] =
     0xda, 0xda, 0xda, 0xe4, 0xe4, 0xe4, 0xee, 0xee, 0xee
 };
 
-unsigned char getclosestcolor(unsigned char r, unsigned char g, unsigned char b)
+unsigned char getclosestcolor(short r, short g, short b)
 {
     unsigned char closest = 0;
     float closestdist = 10000000.0f;
