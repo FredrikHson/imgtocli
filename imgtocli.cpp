@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
     memset(buffer, 0, buffersize);
     int bufferoffset = 0;
 
-    unsigned short* datadither = new unsigned short [ target_w * target_h * 3];
+    short* datadither = new short [ target_w * target_h * 3];
     unsigned char* datadither8bit = new unsigned char [ target_w * target_h ];
 
     for(int i = 0; i < (target_w * target_h * 3); i++)
@@ -80,38 +80,41 @@ int main(int argc, char* argv[])
             short new_r = inputpal[(closestcolor - 16) * 3];
             short new_g = inputpal[(closestcolor - 16) * 3 + 1];
             short new_b = inputpal[(closestcolor - 16) * 3 + 2];
-            short rquanterror = r - new_r;
-            short gquanterror = g - new_g;
-            short bquanterror = b - new_b;
+            short quanterror = r - new_r;
+            quanterror += g - new_g;
+            quanterror += b - new_b;
+            quanterror /= 3;
 
             if((i + 1) < target_w)
             {
                 unsigned int currentpixel = GETOFFSET(i + 1, j, target_w);
-                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (7.0 / 16.0);
-                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (7.0 / 16.0);
-                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (7.0 / 16.0);
+                datadither[currentpixel] +=  quanterror * (7.0 / 16.0);
+                datadither[currentpixel + 1] += quanterror * (7.0 / 16.0);
+                datadither[currentpixel + 2] += quanterror * (7.0 / 16.0);
             }
 
             if((i - 1) >= 0 && (j + 1) < target_h)
             {
                 unsigned int currentpixel = GETOFFSET(i - 1, j + 1, target_w);
-                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (3.0 / 16.0);
-                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (3.0 / 16.0);
-                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (3.0 / 16.0);
+                datadither[currentpixel] +=  quanterror * (3.0 / 16.0);
+                datadither[currentpixel + 1] += quanterror * (3.0 / 16.0);
+                datadither[currentpixel + 2] += quanterror * (3.0 / 16.0);
             }
+
             if((j + 1) < target_h)
             {
                 unsigned int currentpixel = GETOFFSET(i , j + 1, target_w);
-                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (5.0 / 16.0);
-                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (5.0 / 16.0);
-                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (5.0 / 16.0);
+                datadither[currentpixel] +=  quanterror * (5.0 / 16.0);
+                datadither[currentpixel + 1] += quanterror * (5.0 / 16.0);
+                datadither[currentpixel + 2] += quanterror * (5.0 / 16.0);
             }
+
             if((i + 1) < target_w && (j + 1) < target_h)
             {
                 unsigned int currentpixel = GETOFFSET(i + 1, j + 1, target_w);
-                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (1.0 / 16.0);
-                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (1.0 / 16.0);
-                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (1.0 / 16.0);
+                datadither[currentpixel] +=  quanterror * (1.0 / 16.0);
+                datadither[currentpixel + 1] += quanterror * (1.0 / 16.0);
+                datadither[currentpixel + 2] += quanterror * (1.0 / 16.0);
             }
 
             datadither8bit[i + j * target_w] = closestcolor;
@@ -144,6 +147,7 @@ int main(int argc, char* argv[])
     fflush(stdout);
     delete [] data;
     delete [] datadither;
+    delete [] datadither8bit;
     delete [] buffer;
     return 0;
 }
@@ -238,7 +242,7 @@ unsigned char getclosestcolor(short r, short g, short b)
     unsigned char closest = 0;
     float closestdist = 10000000.0f;
 
-    for(unsigned short i = 0; i < 239; i ++)
+    for(unsigned short i = 0; i < 239; i++)
     {
         short rdist = r - inputpal[i * 3];
         short gdist = g - inputpal[i * 3 + 1];
