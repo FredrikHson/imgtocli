@@ -11,11 +11,133 @@ exit 0
 #include <unistd.h>
 #include <math.h>
 #include <memory.h>
+
+float inputpalhsv[720];
 extern unsigned char inputpal[720];
 unsigned char getclosestcolor(short r, short g, short b);
+unsigned char getclosestcolorhsv(float h, float s, float v);
 
+void rgbtohsv(short sr, short sg, short sb, float& h, float& s, float& v)
+{
+    float r = (float)sr / 255.0f;
+    float g = (float)sg / 255.0f;
+    float b = (float)sb / 255.0f;
 
+    float min, max, delta;
+    min = r;
 
+    if(g < min)
+    {
+        min = g;
+    }
+
+    if(b < min)
+    {
+        min = b;
+    }
+
+    max = r;
+
+    if(g > max)
+    {
+        max = g;
+    }
+
+    if(b > max)
+    {
+        max = b;
+    }
+
+    v = max;
+    delta = max - min;
+
+    if(max != 0)
+    {
+        s = delta / max;
+    }
+    else
+    {
+        s = 0;
+        h = -1;
+        return;
+    }
+
+    if(r == max)
+    {
+        h = (g - b) / delta;
+    }
+    else if(g == max)
+    {
+        h = 2 + (b - r) / delta;
+    }
+    else
+    {
+        h = 4 + (r - g) / delta;
+    }
+
+    if(h < 0)
+    {
+        h += 6.0;
+    }
+
+}
+void hsvtorgb(short& sr, short& sg, short& sb, float h, float s, float v)
+{
+
+    int i;
+    float f, p, q, t;
+
+    if(s == 0)
+    {
+        sr = sg = sb = v * 255.0;
+        return;
+    }
+
+    i = floor(h);
+    f = h - i;
+    p = v * (1 - s);
+    q = v * (1 - s * f);
+    t = v * (1 - s * (1 - f));
+
+    switch(i)
+    {
+        case 0:
+            sr = v * 255.0;
+            sg = t * 255.0;
+            sb = p * 255.0;
+            break;
+
+        case 1:
+            sr = q * 255.0;
+            sg = v * 255.0;
+            sb = p * 255.0;
+            break;
+
+        case 2:
+            sr = p * 255.0;
+            sg = v * 255.0;
+            sb = t * 255.0;
+            break;
+
+        case 3:
+            sr = p * 255.0;
+            sg = q * 255.0;
+            sb = v * 255.0;
+            break;
+
+        case 4:
+            sr = t * 255.0;
+            sg = p * 255.0;
+            sb = v * 255.0;
+            break;
+
+        default:
+            sr = v * 255.0;
+            sg = p * 255.0;
+            sb = q * 255.0;
+            break;
+    }
+}
 int plotPixel(unsigned char top, unsigned char bottom, char* buffer, int* bufferoffset)
 {
     return sprintf(buffer + *bufferoffset, "\33[48;5;%d;38;5;%dm▄", top, bottom);
@@ -28,6 +150,14 @@ int main(int argc, char* argv[])
     h = term.ws_row * 2;
     w = term.ws_col;
 
+    for(int i = 0; i < 720; i += 3)
+    {
+        float h, s, v;
+        rgbtohsv(inputpal[i], inputpal[i + 1], inputpal[i + 2],  h, s, v);
+        inputpalhsv[i]     = h;
+        inputpalhsv[i + 1] = s;
+        inputpalhsv[i + 2] = v;
+    }
 
     ilInit();
     iluInit();
@@ -59,12 +189,18 @@ int main(int argc, char* argv[])
     memset(buffer, 0, buffersize);
     int bufferoffset = 0;
 
-    short* datadither = new short [ target_w * target_h * 3 ];
+    float* datadither = new float [ target_w * target_h * 3];
     unsigned char* datadither8bit = new unsigned char [ target_w * target_h ];
 
-    for(int i = 0; i < (target_w * target_h * 3); i++)
+    for(int i = 0; i < (target_w * target_h * 3); i += 3)
     {
-        datadither[i] = data[i];
+
+        float h, s, v;
+        rgbtohsv(data[i], data[i + 1], data[i + 2], h, s, v);
+        datadither[i] = h;
+        datadither[i + 1] = s;
+        datadither[i + 2] = v;
+
     }
 
     for(int j = 0; j < target_h; j++)
@@ -73,50 +209,38 @@ int main(int argc, char* argv[])
         {
 #define GETOFFSET(x,y,w) ((x) * 3 + (y) * w * 3)
             unsigned int offset = GETOFFSET(i, j, target_w);
-            short r = datadither[offset];
-            short g = datadither[offset + 1];
-            short b = datadither[offset + 2];
-            unsigned char closestcolor = getclosestcolor(r, g, b);
-            short new_r = inputpal[(closestcolor - 16) * 3];
-            short new_g = inputpal[(closestcolor - 16) * 3 + 1];
-            short new_b = inputpal[(closestcolor - 16) * 3 + 2];
-            short rquanterror = r - new_r;
-            short gquanterror = g - new_g;
-            short bquanterror = b - new_b;
+            float h = datadither[offset];
+            float s = datadither[offset + 1];
+            float v = datadither[offset + 2];
+            unsigned char closestcolor = getclosestcolorhsv(h, s, v);
+            float new_v = inputpalhsv[(closestcolor - 16) * 3 + 2];
+            float vquanterror = v - new_v;
 
             if((i + 1) < target_w)
             {
                 unsigned int currentpixel = GETOFFSET(i + 1, j, target_w);
-                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (7.0 / 16.0);
-                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (7.0 / 16.0);
-                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (7.0 / 16.0);
+                datadither[currentpixel + 2] += vquanterror * (7.0 / 16.0);
             }
 
             if((i - 1) >= 0 && (j + 1) < target_h)
             {
                 unsigned int currentpixel = GETOFFSET(i - 1, j + 1, target_w);
-                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (3.0 / 16.0);
-                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (3.0 / 16.0);
-                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (3.0 / 16.0);
+                datadither[currentpixel + 2] += vquanterror * (3.0 / 16.0);
             }
+
             if((j + 1) < target_h)
             {
                 unsigned int currentpixel = GETOFFSET(i , j + 1, target_w);
-                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (5.0 / 16.0);
-                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (5.0 / 16.0);
-                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (5.0 / 16.0);
+                datadither[currentpixel + 2] += vquanterror * (5.0 / 16.0);
             }
+
             if((i + 1) < target_w && (j + 1) < target_h)
             {
                 unsigned int currentpixel = GETOFFSET(i + 1, j + 1, target_w);
-                datadither[currentpixel] = datadither[currentpixel] + rquanterror * (1.0 / 16.0);
-                datadither[currentpixel + 1] = datadither[currentpixel + 1] + gquanterror * (1.0 / 16.0);
-                datadither[currentpixel + 2] = datadither[currentpixel + 2] + bquanterror * (1.0 / 16.0);
+                datadither[currentpixel + 2] += vquanterror * (1.0 / 16.0);
             }
 
             datadither8bit[i + j * target_w] = closestcolor;
-
-
         }
 
     }
@@ -148,7 +272,6 @@ int main(int argc, char* argv[])
     delete [] buffer;
     return 0;
 }
-
 
 unsigned char inputpal[720] =
 {
@@ -238,6 +361,32 @@ unsigned char getclosestcolor(short r, short g, short b)
 {
     unsigned char closest = 0;
     float closestdist = 10000000.0f;
+
+    for(unsigned short i = 0; i < 239; i++)
+    {
+        short rdist = r - inputpal[i * 3];
+        short gdist = g - inputpal[i * 3 + 1];
+        short bdist = b - inputpal[i * 3 + 2];
+        float dist  = rdist * rdist + gdist * gdist + bdist * bdist;
+
+        if(dist < closestdist)
+        {
+            closestdist = dist;
+            closest = i;
+        }
+    }
+
+    return closest + 16;
+}
+unsigned char getclosestcolorhsv(float h, float s, float v)
+{
+    unsigned char closest = 0;
+    float closestdist = 10000000.0f;
+    short r;
+    short g;
+    short b;
+
+    hsvtorgb(r, g, b, h, s, v);
 
     for(unsigned short i = 0; i < 239; i++)
     {
